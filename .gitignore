@@ -1,3 +1,24 @@
+# Ignore Secret Keys
+.env
+api_keys.txt
+
+# Ignore Python Junk
+__pycache__/
+venv/
+*.pyc
+
+# Ignore Node.js Junk (Frontend)
+node_modules/
+dist/
+
+# Ignore Large Model Files
+models/
+.ollama/
+
+# Ignore Operating System Files
+.DS_Store
+Thumbs.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

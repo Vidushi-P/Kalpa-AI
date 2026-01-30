@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+stability-sdk
+python-dotenv
+requests
+pydantic
+ollama
