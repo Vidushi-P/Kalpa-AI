@@ -1,0 +1,22 @@
+[
+  {
+    "scene_id": 1,
+    "location": "INT. 404 - DIVYAVATHI APARTMENT",
+    "analysis": {
+      "emotion": "Eerie, Suspenseful",
+      "tone": "Dark Mystery",
+      "mood": "A podcast being recorded in total darkness, a ghost-like figure on a sofa, silent and still atmosphere.",
+      "visual_prompt": "Cinematic shot, dark apartment interior, silhouette of a woman sitting on a sofa in the shadows, recording a podcast, single dim light source, volumetric fog, horror atmosphere, 8k"
+    }
+  },
+  {
+    "scene_id": 2,
+    "location": "EXT. GRAVEYARD 5",
+    "analysis": {
+      "emotion": "Melancholy, Gothic Romance",
+      "tone": "Surreal",
+      "mood": "Night time in a graveyard, a woman in a wedding dress burying a body while humming.",
+      "visual_prompt": "Cinematic film still, night graveyard scene, woman in red indian wedding saree burying a body, moonlight, eerie mist, contrast between beauty and death, hyper-realistic, 35mm film grain"
+    }
+  }
+]
