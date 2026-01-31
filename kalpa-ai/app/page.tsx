@@ -1,76 +1,56 @@
-/*"use client";
-import { useState } from "react";
-
-export default function Home() {
-  const [logs, setLogs] = useState("Waiting for upload...");
-
-  async function handleUpload(e: any) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setLogs("Uploading and parsing...");
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await fetch("/api/parse-pdf", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await response.json();
-    setLogs(JSON.stringify(data, null, 2));
-  }
-
-  return (
-    <div className="p-10">
-      <h1 className="text-2xl font-bold mb-4">PDF Parser Test</h1>
-      <input type="file" onChange={handleUpload} className="border p-2 mb-4" />
-      <pre className="bg-gray-900 text-green-400 p-4 rounded overflow-auto h-96">
-        {logs}
-      </pre>
-    </div>
-  );
-}*/
 "use client";
 import { useState } from "react";
-import { Film, Sparkles, Brain, Clapperboard, Heart, FileText } from "lucide-react";
+import { Film, Sparkles, Brain, Clapperboard, Heart, FileText, Camera, Lightbulb } from "lucide-react";
 import InsightCard from "./components/InsightCard";
 import ScriptInput from "./components/ScriptInput";
 import StoryboardImage from "./components/StoryboardImage";
+import TechCard from "./components/TechCard"; 
 
 export default function Page() {
   // --- REAL STATE VARIABLES ---
-  const [scenes, setScenes] = useState<any[]>([]); // List of scenes from PDF
-  const [selectedScene, setSelectedScene] = useState<any>(null); // The scene user clicked
+  const [scenes, setScenes] = useState<any[]>([]); 
+  const [selectedScene, setSelectedScene] = useState<any>(null); 
   
-  // Analysis Data (from Member 2's AI)
-  const [analysis, setAnalysis] = useState({ emotion: "", tone: "", mood: "", visual_prompt: "", analysis_text: "" });
-  const [image, setImage] = useState<string | undefined>(undefined); // The generated image
+  // Analysis Data
+  // FIXED: Added missing comma and proper structure
+  const [analysis, setAnalysis] = useState({ 
+    emotion: "", 
+    tone: "", 
+    mood: "", 
+    visual_prompt: "", 
+    analysis_text: "", 
+    camera_style: "", 
+    lighting_style: ""
+  });
   
-  // Loading States
-  const [processing, setProcessing] = useState(false); // General loading state
+  const [image, setImage] = useState<string | undefined>(undefined); 
+  const [processing, setProcessing] = useState(false); 
 
   // 1. HANDLER: When PDF is uploaded
   const handleScenesLoaded = (parsedScenes: any[]) => {
     setScenes(parsedScenes);
-    // Automatically select the first scene to start
     if (parsedScenes.length > 0) {
-      // Optional: Auto-analyze scene 1
       handleSceneClick(parsedScenes[0]);
     }
   };
 
-  // 2. HANDLER: When a user clicks a Scene in the Sidebar
+  // 2. HANDLER: When a user clicks a Scene
   const handleSceneClick = async (scene: any) => {
     setSelectedScene(scene);
     setProcessing(true);
-    setAnalysis({ emotion: "", tone: "", mood: "", visual_prompt: "", analysis_text: "" });
     setImage(undefined);
+    
+    // Reset Analysis
+    setAnalysis({ 
+        emotion: "", tone: "", mood: "", visual_prompt: "", analysis_text: "", 
+        camera_style: "", lighting_style: "" 
+    });
+
+    // FIXED: Declare variable here so it is visible to the whole function
+    let aiData: any = {}; 
 
     try {
       // --- STEP A: CALL MEMBER 2 (AI ANALYST) ---
-      let aiData;
       try {
         const chatRes = await fetch("/api/chat", {
           method: "POST",
@@ -85,27 +65,31 @@ export default function Page() {
         }
       } catch (err) {
         console.warn("Using Backup Logic (Member 2 API not ready yet)");
-        // FALLBACK: If AI isn't ready, we use a simple backup so the demo doesn't crash
+        // FALLBACK DATA
         aiData = {
           emotion: "Suspenseful",
           tone: "High Contrast Noir",
           mood: "Cinematic Mystery",
-          analysis_text: "The scene presents a high-stakes environment. Shadows play a crucial role in defining the isolation of the character.",
-          visual_prompt: `Cinematic film still, ${scene.title}, dramatic lighting, high contrast, 8k`
+          analysis_text: "The scene presents a high-stakes environment. Shadows play a crucial role.",
+          visual_prompt: `Cinematic film still, ${scene.title}, dramatic lighting, high contrast, 8k`,
+          camera_style: "Handheld / Shaky Cam",
+          lighting_style: "Low Key / Silhouettes"
         };
       }
 
-      // Update UI with Text Analysis
+      // --- UPDATE UI WITH TEXT ANALYSIS ---
+      // Now aiData is guaranteed to exist
       setAnalysis({
         emotion: aiData.emotion || "Intense",
         tone: aiData.tone || "Dramatic",
         mood: aiData.mood || "Cinematic",
-        analysis_text: aiData.analysis_text || aiData.mood_visual_description || "Scene analysis complete.",
-        visual_prompt: aiData.visual_prompt || aiData.mood
+        analysis_text: aiData.analysis_text || "Scene analysis complete.",
+        visual_prompt: aiData.visual_prompt || aiData.mood,
+        camera_style: aiData.camera_style || "Cinematic Wide",
+        lighting_style: aiData.lighting_style || "Natural Lighting"
       });
 
       // --- STEP B: CALL MEMBER 3 (IMAGE GENERATOR) ---
-      // We use the AI's visual prompt to generate the image
       const imagePrompt = aiData.visual_prompt || `Cinematic shot, ${aiData.mood}, ${scene.title}`;
       
       const imgRes = await fetch("/api/generate-image", {
@@ -134,7 +118,7 @@ export default function Page() {
       <div className="absolute top-[-5%] right-[-5%] w-150 h-150 bg-pink-500/3 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-5%] left-[-5%] w-[600px] h-[600px] bg-cyan-500/[0.03] rounded-full blur-[120px] pointer-events-none" />
 
-      {/* SIDEBAR: SCENE SELECTOR */}
+      {/* SIDEBAR */}
       {hasProcessed && (
         <aside className="w-80 h-full border-r border-white/5 flex flex-col bg-white/[0.01] backdrop-blur-3xl z-20 animate-in slide-in-from-left duration-700">
           <div className="p-8 flex items-center gap-3">
@@ -143,7 +127,6 @@ export default function Page() {
             </div>
             <span className="font-black text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-pink-200/40">KALPA.AI</span>
           </div>
-          
           <nav className="p-6 flex-1 overflow-y-auto">
             <p className="px-2 text-[10px] font-bold text-zinc-600 uppercase tracking-[0.3em] mb-4">Script Scenes</p>
             <div className="space-y-2">
@@ -177,15 +160,11 @@ export default function Page() {
                <p className="text-pink-500/40 tracking-[0.6em] text-[10px] font-bold uppercase">Neural Storyboard Engine</p>
              </div>
            )}
-           
-           {/* FILE UPLOAD COMPONENT */}
-           {/* Note: We use onScenesParsed to catch the array from your Parser API */}
            <div className={hasProcessed ? "w-full max-w-md" : "w-full max-w-xl"}>
               <ScriptInput onScenesParsed={handleScenesLoaded} />
            </div>
         </header>
 
-        {/* DASHBOARD (REVEALS AFTER UPLOAD) */}
         {hasProcessed && selectedScene && (
           <div className="p-10 max-w-6xl mx-auto w-full space-y-10 animate-in fade-in slide-in-from-bottom duration-1000">
             
@@ -203,20 +182,33 @@ export default function Page() {
                  <h3 className="text-white/20 text-[10px] font-bold uppercase tracking-[0.4em]">Visual Storyboard</h3>
                  <span className="text-pink-400/50 text-xs font-mono">{selectedScene.title}</span>
                </div>
-               
-               {/* This connects to Member 3's API Result */}
                <StoryboardImage imageUrl={image} isLoading={processing && !image} />
             </div>
 
-            {/* 3. AI ANALYSIS TEXT */}
+            {/* 3. TECHNICAL ADVISOR GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TechCard 
+                title="Camera Style" 
+                value={analysis.camera_style} 
+                icon={Camera} 
+                description="Suggested angle to capture the scene's emotion."
+              />
+              <TechCard 
+                title="Lighting Setup" 
+                value={analysis.lighting_style} 
+                icon={Lightbulb} 
+                description="Recommended lighting scheme for tone."
+              />
+            </div>
+
+            {/* 4. SCENE CONTEXT TEXT */}
             <div className="bg-linear-to-r from-pink-500/5 to-transparent border-l-2 border-pink-500/20 p-8 rounded-r-3xl">
               <div className="flex items-center gap-3 mb-4 text-pink-400/60">
                 <FileText size={16} />
                 <span className="text-xs font-bold tracking-widest uppercase">Scene Context</span>
               </div>
               <p className="text-zinc-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                 {/* Displaying the Scene Content or Analysis */}
-                 {processing ? "/// NEURAL NETWORKS ANALYZING SCENE DATA..." : selectedScene.content}
+                 {processing ? "/// NEURAL NETWORKS ANALYZING SCENE DATA..." : (analysis.analysis_text || selectedScene.content)}
               </p>
             </div>
           </div>

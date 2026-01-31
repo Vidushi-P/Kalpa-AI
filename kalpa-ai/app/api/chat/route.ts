@@ -1,52 +1,58 @@
-export async function POST(req: Request) {
-  try {
-    const { prompt } = await req.json();
+// ... inside app/api/chat/route.ts ...
 
-    const response = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gemma:4b", 
-        // This is where the "Training" happens via Instructions
-        prompt: `You are a Cinematography Advisor. Analyze this script snippet: "${prompt}"
-                 
-                 Provide advice based on these 4 pillars:
-                 1. Camera Style Advisor: Suggest angles (e.g., Low angle to show power, Close-up for intimacy).
-                 2. Emotion: Identify the core feeling.
-                 3. Tone: The creative "vibe" (e.g., Gritty, Surreal, Playful).
-                 4. Atmosphere: The environmental feeling (e.g., Claustrophobic, Ethereal).
+    // Make sure 'text' is defined above, for example:
+    const text: string = ""; // TODO: Assign the actual scene text here
 
-                 Return ONLY a JSON object:
-                 {
-                   "camera_advisor": "...",
-                   "emotion": "...",
-                   "tone": "...",
-                   "atmosphere": "..."
-                 }`,
-        stream: false,
-      }),
-    });
+    const systemPrompt = `
+      You are an expert Cinematographer for Indian Cinema (Tollywood).
+      Analyze the scene and provide technical direction.
+      
+      CRITICAL CONTEXT:
+      - This is a Telugu movie context.
+      - "Bride's attire" = Saree & Jewelry.
+      
+      Return a STRICT JSON object with these 7 keys:
+      1. "emotion": (1-2 words)
+      2. "tone": (Genre tone)
+      3. "mood": (Atmosphere description)
+      4. "visual_prompt": (Detailed image generation prompt)
+      5. "analysis_text": (Subtext explanation)
+      
+      // --- NEW FIELDS ---
+      6. "camera_style": (Technical angle advice. e.g., "Low Angle / Dutch Tilt", "Wide Master Shot", "Extreme Close-up")
+      7. "lighting_style": (Lighting direction. e.g., "High Contrast Chiaroscuro", "Soft Diffused Moonlight", "Harsh Top Light")
+      
+          SCENE TEXT:
+          "${text.substring(0, 1500)}" 
+        `;
 
-    const data = await response.json();
-    const rawResponse = data.response || ""; 
+    // ... (Ollama call remains the same) ...
 
-    // Extract the JSON block
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    
-    if (jsonMatch) {
-      const cleanJson = JSON.parse(jsonMatch[0]);
-      return Response.json(cleanJson);
-    } else {
-      // Emergency Fallback
-      return Response.json({
-        camera_advisor: "Suggest standard Eye-level shot",
-        emotion: "Neutral",
-        tone: "Naturalistic",
-        atmosphere: "Standard"
-      });
+    // Update the Fallback Logic in case AI fails
+    let aiData: {
+      emotion: string;
+      tone: string;
+      mood: string;
+      camera_style: string;
+      lighting_style: string;
+      visual_prompt: string;
+      analysis_text: string;
+    };
+
+    // Assume 'aiResponse' is the variable holding the AI's raw response content as a string
+    let aiRawContent: string = ""; // TODO: Assign the actual AI response string here, e.g., from Ollama call
+
+    try {
+      aiData = JSON.parse(aiRawContent);
+    } catch (e) {
+      aiData = {
+        emotion: "Intense",
+        tone: "Dramatic",
+        mood: "High tension atmosphere.",
+        // Default Technical Advice
+        camera_style: "Handheld / Shaky Cam",
+        lighting_style: "Low Key / Silhouettes",
+        visual_prompt: "Cinematic film still, South Indian movie, dramatic lighting",
+        analysis_text: "The scene implies a moment of instability."
+      };
     }
-
-  } catch (error: any) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-}
