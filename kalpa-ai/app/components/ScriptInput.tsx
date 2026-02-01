@@ -1,106 +1,150 @@
 "use client";
-import { useState, useRef } from "react";
-import { Plus, FileText, Send, X, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Upload, FileText, Clipboard, Play } from "lucide-react";
 
-// Update the prop to accept the list of scenes (array) instead of just a string
-export default function ScriptInput({ onScenesParsed }: { onScenesParsed: (scenes: any[]) => void }) {
-  const [text, setText] = useState("");
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false); // Added loading state
-  const fileInputRef = useRef<HTMLInputElement>(null);
+interface ScriptInputProps {
+  onScenesParsed: (scenes: any[]) => void;
+}
 
-  // --- THE REAL UPLOAD LOGIC ---
+export default function ScriptInput({ onScenesParsed }: ScriptInputProps) {
+  const [activeTab, setActiveTab] = useState<'upload' | 'text'>('upload');
+  const [textInput, setTextInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // --- OPTION 1: HANDLE FILE UPLOAD (Existing Logic) ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setFileName(file.name);
-    setLoading(true); // Start loading spinner
-
-    // create the payload for the API
+    setLoading(true);
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      // Call Member 3's PDF Parser API
       const res = await fetch("/api/parse-pdf", {
         method: "POST",
         body: formData,
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        // Send the parsed scenes back to page.tsx
-        if (data.scenes) {
-          onScenesParsed(data.scenes);
-        }
-      } else {
-        console.error("Failed to upload");
-      }
+      const data = await res.json();
+      onScenesParsed(data.scenes);
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("PDF Parse Error:", error);
+      alert("Failed to parse PDF. Please try pasting the text instead.");
     } finally {
-      setLoading(false); // Stop loading spinner
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="w-full max-w-4xl mx-auto bg-black/40 border border-cyan-500/30 rounded-[2rem] p-8 shadow-[0_0_30px_rgba(6,182,212,0.1)] backdrop-blur-md">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-cyan-400 text-[10px] font-bold uppercase tracking-[0.4em]">Input Gateway</h3>
+  // --- OPTION 2: HANDLE TEXT INPUT (New Logic) ---
+  const handleTextSubmit = () => {
+    if (!textInput.trim()) return;
+    setLoading(true);
+
+    // SIMPLE CLIENT-SIDE PARSER
+    // 1. Split by "INT." or "EXT." to find scenes
+    // 2. This regex finds "INT." or "EXT." at the start of a line
+    const rawScenes = textInput.split(/(?=INT\.|EXT\.)/g);
+
+    const parsedScenes = rawScenes
+      .map((content, index) => {
+        const lines = content.trim().split("\n");
+        const title = lines[0] || `Scene ${index + 1}`; // First line is usually the heading
         
-        {/* FILE BADGE */}
-        {fileName && (
-          <div className="flex items-center gap-2 bg-purple-900/20 px-3 py-1 rounded-full border border-purple-500/40 animate-pulse">
-            <FileText size={12} className="text-purple-400" />
-            <span className="text-[10px] text-purple-100 uppercase font-bold">{fileName}</span>
-            <button onClick={() => setFileName(null)}><X size={12} className="text-zinc-500 hover:text-white" /></button>
-          </div>
-        )}
+        // Filter out empty scenes
+        if (content.trim().length < 10) return null;
+
+        return {
+          id: `scene-${index}`,
+          title: title.trim(),
+          content: content.trim()
+        };
+      })
+      .filter(Boolean); // Remove nulls
+
+    // If regex failed (user pasted unstructured text), treat it as one big scene
+    if (parsedScenes.length === 0 && textInput.length > 0) {
+        parsedScenes.push({
+            id: 'scene-0',
+            title: 'Full Script / Scene 1',
+            content: textInput
+        });
+    }
+
+    // Simulate a small delay for "AI effect" then load
+    setTimeout(() => {
+        onScenesParsed(parsedScenes);
+        setLoading(false);
+    }, 800);
+  };
+
+  return (
+    <div className="w-full bg-white/5 border border-white/10 rounded-3xl p-2 backdrop-blur-xl">
+      
+      {/* TABS */}
+      <div className="flex gap-2 mb-4 p-1 bg-black/20 rounded-2xl">
+        <button
+          onClick={() => setActiveTab('upload')}
+          className={`flex-1 py-3 rounded-xl text-xs font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'upload' ? 'bg-pink-500 text-white shadow-lg' : 'text-zinc-500 hover:text-white'
+          }`}
+        >
+          <Upload size={14} /> Upload PDF
+        </button>
+        <button
+          onClick={() => setActiveTab('text')}
+          className={`flex-1 py-3 rounded-xl text-xs font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'text' ? 'bg-pink-500 text-white shadow-lg' : 'text-zinc-500 hover:text-white'
+          }`}
+        >
+          <Clipboard size={14} /> Paste Text
+        </button>
       </div>
 
-      <div className="relative group">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="UPLOAD PDF TO BEGIN..."
-          readOnly // Disable typing for now to force PDF upload (easier for demo)
-          className="w-full h-44 bg-zinc-950 border border-zinc-800 rounded-xl p-6 text-cyan-50 placeholder:text-zinc-700 focus:outline-none focus:border-cyan-500/50 transition-all font-mono text-sm leading-relaxed cursor-not-allowed opacity-50"
-        />
-        
-        <div className="absolute bottom-4 right-4 flex items-center gap-3">
-          {/* HIDDEN INPUT */}
-          <input 
-             type="file" 
-             ref={fileInputRef} 
-             onChange={handleFileUpload} 
-             className="hidden" 
-             accept=".pdf" 
-          />
-
-          {/* UPLOAD BUTTON */}
-          <button
-            disabled={loading}
-            onClick={() => fileInputRef.current?.click()}
-            className="p-3 bg-zinc-900 text-cyan-400 rounded-lg hover:bg-zinc-800 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)] disabled:opacity-50"
-          >
-            <Plus size={20} />
-          </button>
-          
-          {/* PROCESS BUTTON (Shows Loading) */}
-          <button
-            disabled={true} // Disabled because upload happens automatically on file select
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] ${
-              loading ? "bg-cyan-900 text-cyan-200 cursor-wait" : "bg-cyan-500 text-black hover:bg-cyan-400"
-            }`}
-          >
-            {loading ? (
-              <>Analyzing <Loader2 size={14} className="animate-spin" /></>
-            ) : (
-              <>Process Script <Send size={14} /></>
-            )}
-          </button>
-        </div>
+      {/* CONTENT AREA */}
+      <div className="p-4">
+        {activeTab === 'upload' ? (
+          // --- UPLOAD MODE ---
+          <div className="border-2 border-dashed border-white/10 rounded-2xl p-10 text-center hover:border-pink-500/50 hover:bg-pink-500/5 transition-all group relative">
+            <input 
+              type="file" 
+              accept="application/pdf"
+              onChange={handleFileUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              disabled={loading}
+            />
+            <div className="flex flex-col items-center gap-3 text-zinc-400 group-hover:text-pink-200 transition-colors">
+              <div className="p-4 bg-white/5 rounded-full group-hover:bg-pink-500/20 transition-all">
+                 {loading ? <div className="animate-spin w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full" /> : <FileText size={24} />}
+              </div>
+              <p className="text-xs font-bold uppercase tracking-widest">
+                {loading ? "Parsing Script..." : "Drop PDF Here"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          // --- TEXT MODE ---
+          <div className="space-y-4">
+            <textarea
+              placeholder="Paste your script here... (Start scenes with INT. or EXT. for auto-splitting)"
+              className="w-full h-40 bg-black/30 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 placeholder:text-zinc-700 focus:outline-none focus:border-pink-500/50 resize-none font-mono"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+            />
+            <button 
+              onClick={handleTextSubmit}
+              disabled={loading || !textInput}
+              className={`w-full py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ${
+                !textInput ? 'bg-white/5 text-zinc-600 cursor-not-allowed' : 'bg-white text-black hover:bg-pink-500 hover:text-white shadow-lg shadow-pink-500/20'
+              }`}
+            >
+              {loading ? (
+                 <span className="animate-pulse">Processing Text...</span>
+              ) : (
+                 <> <Play size={14} /> Analyze Script </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
