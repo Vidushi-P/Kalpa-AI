@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { Film, Sparkles, Brain, Clapperboard, Heart, FileText, Camera, Lightbulb } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Film, Sparkles, FileText, Camera, Lightbulb, Lock } from "lucide-react";
 import InsightCard from "./components/InsightCard";
 import ScriptInput from "./components/ScriptInput";
 import StoryboardImage from "./components/StoryboardImage";
@@ -11,8 +11,6 @@ export default function Page() {
   const [scenes, setScenes] = useState<any[]>([]); 
   const [selectedScene, setSelectedScene] = useState<any>(null); 
   
-  // Analysis Data
-  // FIXED: Added missing comma and proper structure
   const [analysis, setAnalysis] = useState({ 
     emotion: "", 
     tone: "", 
@@ -26,6 +24,9 @@ export default function Page() {
   const [image, setImage] = useState<string | undefined>(undefined); 
   const [processing, setProcessing] = useState(false); 
 
+  // Ref to scroll to top
+  const topRef = useRef<HTMLDivElement>(null);
+
   // 1. HANDLER: When PDF is uploaded
   const handleScenesLoaded = (parsedScenes: any[]) => {
     setScenes(parsedScenes);
@@ -36,9 +37,18 @@ export default function Page() {
 
   // 2. HANDLER: When a user clicks a Scene
   const handleSceneClick = async (scene: any) => {
+    // --- PROTECTION: Prevent clicking if already working ---
+    if (processing) return; 
+    
+    // UI Updates
     setSelectedScene(scene);
     setProcessing(true);
     setImage(undefined);
+    
+    // Auto-scroll to top of dashboard
+    if (topRef.current) {
+        topRef.current.scrollIntoView({ behavior: "smooth" });
+    }
     
     // Reset Analysis
     setAnalysis({ 
@@ -46,17 +56,22 @@ export default function Page() {
         camera_style: "", lighting_style: "" 
     });
 
-    // FIXED: Declare variable here so it is visible to the whole function
     let aiData: any = {}; 
 
     try {
       // --- STEP A: CALL MEMBER 2 (AI ANALYST) ---
       try {
+        // Add a timeout signal to prevent hanging forever
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
         const chatRes = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: scene.content }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         
         if (chatRes.ok) {
             aiData = await chatRes.json();
@@ -64,21 +79,19 @@ export default function Page() {
             throw new Error("AI API Failed");
         }
       } catch (err) {
-        console.warn("Using Backup Logic (Member 2 API not ready yet)");
-        // FALLBACK DATA
+        console.warn("Using Backup Logic (API timeout or error)");
         aiData = {
           emotion: "Suspenseful",
-          tone: "High Contrast Noir",
-          mood: "Cinematic Mystery",
-          analysis_text: "The scene presents a high-stakes environment. Shadows play a crucial role.",
-          visual_prompt: `Cinematic film still, ${scene.title}, dramatic lighting, high contrast, 8k`,
+          tone: "Noir / Thriller",
+          mood: "High Tension",
+          analysis_text: "The scene implies a moment of instability and high stakes.",
+          visual_prompt: `Cinematic film still, ${scene.title}, dramatic lighting, 8k, south indian cinema`,
           camera_style: "Handheld / Shaky Cam",
           lighting_style: "Low Key / Silhouettes"
         };
       }
 
       // --- UPDATE UI WITH TEXT ANALYSIS ---
-      // Now aiData is guaranteed to exist
       setAnalysis({
         emotion: aiData.emotion || "Intense",
         tone: aiData.tone || "Dramatic",
@@ -106,7 +119,7 @@ export default function Page() {
     } catch (error) {
       console.error("Pipeline Error:", error);
     } finally {
-      setProcessing(false);
+      setProcessing(false); // ALWAYS UNLOCK BUTTONS AT THE END
     }
   };
 
@@ -114,33 +127,42 @@ export default function Page() {
 
   return (
     <div className="flex h-screen w-full bg-[#03050b] text-white overflow-hidden font-sans relative">
-      {/* Background Atmosphere */}
       <div className="absolute top-[-5%] right-[-5%] w-150 h-150 bg-pink-500/3 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-5%] left-[-5%] w-[600px] h-[600px] bg-cyan-500/[0.03] rounded-full blur-[120px] pointer-events-none" />
 
       {/* SIDEBAR */}
       {hasProcessed && (
         <aside className="w-80 h-full border-r border-white/5 flex flex-col bg-white/[0.01] backdrop-blur-3xl z-20 animate-in slide-in-from-left duration-700">
-          <div className="p-8 flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(236,72,153,0.3)]">
-              <Film className="text-black" size={20} />
-            </div>
+          
+          {/* LOGO (TEXT ONLY) */}
+          <div className="p-8">
             <span className="font-black text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-pink-200/40">KALPA.AI</span>
           </div>
+
           <nav className="p-6 flex-1 overflow-y-auto">
-            <p className="px-2 text-[10px] font-bold text-zinc-600 uppercase tracking-[0.3em] mb-4">Script Scenes</p>
+            <div className="flex items-center justify-between mb-4">
+                <p className="px-2 text-[10px] font-bold text-zinc-600 uppercase tracking-[0.3em]">Script Scenes</p>
+                {processing && <span className="text-[10px] text-pink-500 font-mono animate-pulse">PROCESSING...</span>}
+            </div>
+            
             <div className="space-y-2">
               {scenes.map((scene) => (
                 <button 
                   key={scene.id}
                   onClick={() => handleSceneClick(scene)}
+                  disabled={processing} // <--- DISABLES CLICK WHILE PROCESSING
                   className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold border transition-all duration-300 ${
                     selectedScene?.id === scene.id 
                     ? "bg-pink-500/10 border-pink-500/40 text-pink-200 shadow-[0_0_15px_rgba(236,72,153,0.1)]" 
-                    : "bg-white/5 border-transparent text-zinc-400 hover:bg-white/10 hover:text-white"
+                    : processing 
+                        ? "bg-white/5 border-transparent text-zinc-600 opacity-50 cursor-not-allowed" // Dimmed when busy
+                        : "bg-white/5 border-transparent text-zinc-400 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <div className="truncate">{scene.title}</div>
+                  <div className="flex items-center justify-between">
+                    <div className="truncate w-full">{scene.title}</div>
+                    {processing && selectedScene?.id === scene.id && <Lock size={10} className="text-pink-500" />}
+                  </div>
                 </button>
               ))}
             </div>
@@ -149,7 +171,7 @@ export default function Page() {
       )}
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 overflow-y-auto relative z-10">
+      <main className="flex-1 overflow-y-auto relative z-10" ref={topRef}>
         <header className={`p-10 flex flex-col items-center transition-all duration-1000 ${hasProcessed ? 'pt-8 items-start' : 'h-full justify-center'}`}>
            {!hasProcessed && (
              <div className="mb-12 text-center animate-in fade-in zoom-in duration-700">
