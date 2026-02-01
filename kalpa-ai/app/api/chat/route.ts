@@ -4,84 +4,69 @@ import ollama from 'ollama';
 export async function POST(req: Request) {
   try {
     const { text } = await req.json();
+    if (!text) return NextResponse.json({ error: 'No text' }, { status: 400 });
 
-    if (!text) {
-      return NextResponse.json({ error: 'No text provided' }, { status: 400 });
-    }
+    // --- LOGGING STEP 1: See what scene we are analyzing ---
+    console.log("\n🔹 [1. INPUT] Scene Text received:", text.substring(0, 50) + "...");
 
-    // 1. DYNAMIC SYSTEM PROMPT
-    // We explicitly tell Gemma to avoid generic words like "Intense" unless it's actually intense.
     const systemPrompt = `
-      You are a legendary Film Director for Indian Cinema (Tollywood). 
-      Analyze the specific details of this movie scene.
+      You are a Visual Director for an Indian Movie.
+      Analyze the script scene to create a precise Image Generation Prompt.
 
-      RULES:
-      1. Do NOT use generic words like "Intense" or "Dramatic" unless the scene is actually a fight or thriller.
-      2. If the scene is calm, say "Calm". If it is sad, say "Melancholic".
-      3. "Bride" = Saree & Jewelry.
-      4. "House" = Indian Architecture.
+      CRITICAL RULES FOR "visual_prompt":
+      1. IGNORE DIALOGUE. Do not draw what characters *say*. Draw where they *are* and what they *do*.
+      2. FOCUS on the Scene Heading (e.g., "INT. OFFICE") and Action Lines to generate the visual.
+      3. CULTURAL CONTEXT: "Man" = Indian features. "Village" = Indian rural setting. "City" = Indian urban setting. "Bride" = Saree.
+      4. FORMAT: "[Subject] + [Action] + [Setting] + [Lighting]".
 
-      OUTPUT FORMAT:
-      Return ONLY a raw JSON object. Do not write "Here is the JSON" or use Markdown.
+      Return a STRICT JSON object:
       {
-        "emotion": "Specific emotion (e.g., 'Quiet Despair', 'Joyful Reunion')",
-        "tone": "Specific tone (e.g., 'Rustic Drama', 'Romantic Comedy')",
+        "emotion": "1-2 words (e.g., 'Shocked')",
+        "tone": "Genre tone (e.g., 'Action Thriller')",
         "mood": "Atmosphere description",
-        "visual_prompt": "Visual description for image generation (mention lighting, colors, Indian context)",
+        "visual_prompt": "A detailed, literal description of the visible scene. Start with 'A South Indian...'. Example: 'A South Indian man sitting in a modern corporate office, typing on a laptop, harsh fluorescent lighting'.",
         "analysis_text": "Brief subtext explanation",
-        "camera_style": "Specific camera angle (e.g., 'Low Angle', 'Wide Master', 'Handheld')",
-        "lighting_style": "Specific lighting (e.g., 'Golden Hour', 'Cold Blue Moonlight', 'Warm Interior')"
+        "camera_style": "Camera angle that best captures the intent of the scene",
+        "lighting_style": "Lighting type that enhances the mood"
       }
 
       SCENE TEXT:
-      "${text.substring(0, 2000)}" 
+      "${text.substring(0, 1500)}" 
     `;
 
-    // 2. CALL GEMMA WITH HIGH CREATIVITY
+    // --- LOGGING STEP 2: Verify the Prompt sent to Gemma ---
+    // console.log("🔸 [2. PROMPT] Sending to Gemma:", systemPrompt); 
+
     const response = await ollama.chat({
       model: 'gemma3:4b', 
       messages: [{ role: 'user', content: systemPrompt }],
-      format: 'json', // Force JSON mode
-      options: {
-        temperature: 0.9, // High creativity (prevents repetitive answers)
-        top_p: 0.9,       // Diverse vocabulary
-        seed: Math.floor(Math.random() * 10000) // Random seed to ensure every click is different
-      }
+      format: 'json', 
+      options: { temperature: 0.7 } 
     });
 
     let aiRawContent = response.message.content;
-    console.log("🧠 Gemma Raw Output:", aiRawContent); 
 
-    // 3. ROBUST JSON CLEANER
+    // --- LOGGING STEP 3: See exactly what Gemma replied ---
+    console.log("🔹 [3. GEMMA OUTPUT] Raw Response:", aiRawContent);
+
     let aiData;
     try {
-      // Step A: Remove Markdown wrappers like ```json ... ```
       let cleanJson = aiRawContent.replace(/```json/g, "").replace(/```/g, "").trim();
-
-      // Step B: Extract the JSON object using Regex (Finds the first '{' and last '}')
       const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-      
       if (jsonMatch) {
          aiData = JSON.parse(jsonMatch[0]);
       } else {
-         throw new Error("No JSON found in response");
+         throw new Error("No JSON found");
       }
-
     } catch (e) {
-      console.error("❌ JSON Parse Failed. Falling back to Dynamic Logic.");
-      
-      // DYNAMIC FALLBACK: 
-      // Instead of hardcoding "Suspense", we try to guess based on the text length or keywords
-      // This ensures even errors look slightly different.
-      const isNight = text.toLowerCase().includes("night");
+      console.error("❌ JSON Parse Error. Using Fallback.");
       aiData = {
-        emotion: "Undetermined",
-        tone: "General Cinema",
-        mood: isNight ? "Dark and mysterious" : "Bright and open",
-        visual_prompt: `Cinematic film still, ${isNight ? 'night scene' : 'day scene'}, south indian cinema style`,
-        analysis_text: "The AI could not fully process the subtext, but the scene context is preserved.",
-        camera_style: "Standard Wide Shot",
-        lighting_style: isNight ? "Moonlight" : "Natural Light"
+        visual_prompt: `South Indian cinema scene, ${text.substring(0, 100).replace(/\n/g, " ")}`,
+        mood: "Cinematic",
+        emotion: "Dramatic",
+        tone: "Movie",
+        camera_style: "Wide Shot",
+        lighting_style: "Natural"
       };
     }
 
