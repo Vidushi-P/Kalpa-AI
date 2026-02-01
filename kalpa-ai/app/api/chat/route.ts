@@ -21,11 +21,13 @@ export async function POST(req: Request) {
 
       Return a STRICT JSON object:
       {
+        "character_name": "Name of the main character present (e.g., 'Arjun', 'Sita'). If multiple, name the focus.",
+        "location_name": "The setting (e.g., 'Village House', 'Corporate Office', 'Rainy Street')",
         "emotion": "1-2 words (e.g., 'Shocked')",
         "tone": "Genre tone (e.g., 'Action Thriller')",
         "mood": "Atmosphere description",
         "visual_prompt": "A detailed, literal description of the visible scene. Start with 'A South Indian...'. Example: 'A South Indian man sitting in a modern corporate office, typing on a laptop, harsh fluorescent lighting'.",
-        "analysis_text": "Brief subtext explanation",
+        "analysis_text": "A concise 1-2 line summary of what actually happens in this scene. Do NOT quote dialogue. Just describe the core action.",
         "camera_style": "Camera angle that best captures the intent of the scene",
         "lighting_style": "Lighting type that enhances the mood"
       }
@@ -61,10 +63,13 @@ export async function POST(req: Request) {
     } catch (e) {
       console.error("❌ JSON Parse Error. Using Fallback.");
       aiData = {
+        character_name: "Unknown",
+        location_name: "Unknown",
         visual_prompt: `South Indian cinema scene, ${text.substring(0, 100).replace(/\n/g, " ")}`,
         mood: "Cinematic",
         emotion: "Dramatic",
         tone: "Movie",
+        analysis_text: "The scene depicts a dramatic moment typical of South Indian cinema, focusing on character emotion and atmosphere.",
         camera_style: "Wide Shot",
         lighting_style: "Natural"
       };

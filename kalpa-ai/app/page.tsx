@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Film, Sparkles, FileText, Camera, Lightbulb, Lock } from "lucide-react";
+import { Film, Sparkles, FileText, Camera, Lightbulb, Lock, User, MapPin } from "lucide-react";
 import InsightCard from "./components/InsightCard";
 import ScriptInput from "./components/ScriptInput";
 import StoryboardImage from "./components/StoryboardImage";
@@ -11,7 +11,9 @@ export default function Page() {
   const [scenes, setScenes] = useState<any[]>([]); 
   const [selectedScene, setSelectedScene] = useState<any>(null); 
   
-  const [analysis, setAnalysis] = useState({ 
+  const [analysis, setAnalysis] = useState({
+    character_name: "", // NEW FIELD
+    location_name: "",  // NEW FIELD 
     emotion: "", 
     tone: "", 
     mood: "", 
@@ -51,7 +53,8 @@ export default function Page() {
     }
     
     // Reset Analysis
-    setAnalysis({ 
+    setAnalysis({
+        character_name: "", location_name: "", 
         emotion: "", tone: "", mood: "", visual_prompt: "", analysis_text: "", 
         camera_style: "", lighting_style: "" 
     });
@@ -81,6 +84,8 @@ export default function Page() {
       } catch (err) {
         console.warn("Using Backup Logic (API timeout or error)");
         aiData = {
+          character_name: "Protagonist",
+          location_name: "Scene Location",
           emotion: "Suspenseful",
           tone: "Noir / Thriller",
           mood: "High Tension",
@@ -93,6 +98,8 @@ export default function Page() {
 
       // --- UPDATE UI WITH TEXT ANALYSIS ---
       setAnalysis({
+        character_name: aiData.character_name || "Unknown", // Save Data
+        location_name: aiData.location_name || "Unknown Location", // Save Data
         emotion: aiData.emotion || "Intense",
         tone: aiData.tone || "Dramatic",
         mood: aiData.mood || "Cinematic",
@@ -189,6 +196,30 @@ export default function Page() {
 
         {hasProcessed && selectedScene && (
           <div className="p-10 max-w-6xl mx-auto w-full space-y-10 animate-in fade-in slide-in-from-bottom duration-1000">
+
+            <div className="flex flex-col md:flex-row gap-4">
+                {/* Character Card */}
+                <div className="flex-1 bg-gradient-to-r from-pink-500/10 to-transparent border border-pink-500/20 p-4 rounded-2xl flex items-center gap-4">
+                    <div className="w-10 h-10 bg-pink-500/20 rounded-full flex items-center justify-center text-pink-400">
+                        <User size={20} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase text-pink-400 tracking-widest">Character</p>
+                        <p className="text-xl font-bold text-white">{analysis.character_name || "Scanning..."}</p>
+                    </div>
+                </div>
+
+                {/* Location Card */}
+                <div className="flex-1 bg-gradient-to-r from-cyan-500/10 to-transparent border border-cyan-500/20 p-4 rounded-2xl flex items-center gap-4">
+                    <div className="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center text-cyan-400">
+                        <MapPin size={20} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase text-cyan-400 tracking-widest">Location</p>
+                        <p className="text-xl font-bold text-white">{analysis.location_name || "Scanning..."}</p>
+                    </div>
+                </div>
+            </div>
             
             {/* 1. INSIGHT CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -230,7 +261,7 @@ export default function Page() {
                 <span className="text-xs font-bold tracking-widest uppercase">Scene Context</span>
               </div>
               <p className="text-zinc-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                 {processing ? "/// NEURAL NETWORKS ANALYZING SCENE DATA..." : (analysis.analysis_text || selectedScene.content)}
+                 {processing ? "/// NEURAL NETWORKS ANALYZING SCENE DATA..." : (analysis.analysis_text)}
               </p>
             </div>
           </div>
